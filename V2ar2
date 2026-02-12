@@ -1,0 +1,214 @@
+local Library = loadstring(game:HttpGet("https://pastebin.com/raw/4iG9SKxs"))()
+local Window = Library:Window()
+
+local Players          = game:GetService("Players")
+local RunService       = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+
+local LocalPlayer = Players.LocalPlayer
+
+-- Framework loading (only once)
+local Framework
+do
+    local success, result = pcall(function()
+        return require(game:GetService("ReplicatedFirst"):WaitForChild("Framework", 8))
+    end)
+    if success then
+        Framework = result
+        Framework:WaitForLoaded()
+    else
+        warn("[AR2] Failed to load Framework")
+        return
+    end
+end
+
+local VehicleController = Framework.Classes.VehicleController
+local Network           = Framework.Libraries.Network
+
+-- Flags (organized table)
+local Flags = {
+    Loot = {
+        KeepContainersOpen = false,
+        MassOpenKey        = Enum.KeyCode.Insert
+    },
+    Vehicles = {
+        Enabled            = false,
+        ThrottlePower      = 1,
+        MaxSpeedMult       = 1,
+        Acceleration       = 1,
+        SteerPower         = 1,
+        SteerSpeed         = 1,
+        BrakePower         = 1,
+        TireGrip           = 1,
+        SuspensionHeight   = 1,
+        InfiniteNitro      = false,
+        InfiniteFuel       = false,
+        NoDamage           = false
+    }
+}
+
+-- UI Creation
+local MainPage = Window:Page({ Name = "AR2 Cheats" })
+
+-- Loot Utils Section
+local LootSection = MainPage:Section({ Name = "Loot Utils" })
+
+LootSection:Toggle({
+    Name = "Keep Containers Open",
+    Default = false,
+    Callback = function(v) Flags.Loot.KeepContainersOpen = v end
+})
+
+LootSection:Keybind({
+    Name = "Mass Open Containers",
+    Default = "Insert",
+    Callback = function()
+        if not Flags.Loot.KeepContainersOpen then
+            for _, obj in ipairs(workspace:GetChildren()) do
+                if obj:IsA("Model") and (obj:FindFirstChild("ProximityPrompt") or obj:FindFirstChildWhichIsA("ProximityPrompt")) then
+                    local prompt = obj:FindFirstChildWhichIsA("ProximityPrompt")
+                    if prompt and prompt.Enabled and prompt.MaxActivationDistance > 0 then
+                        fireproximityprompt(prompt)
+                    end
+                end
+            end
+            Library:Notify("Attempted to open nearby containers")
+        end
+    end
+})
+
+-- Vehicles Section
+local VehiclesSection = MainPage:Section({ Name = "Vehicles" })
+
+VehiclesSection:Toggle({
+    Name = "Enable Vehicle Mods",
+    Default = false,
+    Callback = function(v) Flags.Vehicles.Enabled = v end
+})
+
+VehiclesSection:Label({ Name = "Speed", Centered = true })
+VehiclesSection:Slider({ Name = "Throttle Power (1–5×)", Min = 1, Max = 5, Default = 1, Increment = 0.1, Callback = function(v) Flags.Vehicles.ThrottlePower = v end })
+VehiclesSection:Slider({ Name = "Max Speed ×",        Min = 1, Max = 3, Default = 1, Increment = 0.1, Callback = function(v) Flags.Vehicles.MaxSpeedMult = v end })
+VehiclesSection:Slider({ Name = "Acceleration ×",     Min = 1, Max = 20, Default = 1, Increment = 0.5, Callback = function(v) Flags.Vehicles.Acceleration = v end })
+
+VehiclesSection:Label({ Name = "Handling", Centered = true })
+VehiclesSection:Slider({ Name = "Steer Power ×", Min = 1, Max = 3, Default = 1, Increment = 0.1, Callback = function(v) Flags.Vehicles.SteerPower = v end })
+VehiclesSection:Slider({ Name = "Steer Speed ×", Min = 1, Max = 2, Default = 1, Increment = 0.1, Callback = function(v) Flags.Vehicles.SteerSpeed = v end })
+VehiclesSection:Slider({ Name = "Brake Power ×", Min = 1, Max = 2, Default = 1, Increment = 0.1, Callback = function(v) Flags.Vehicles.BrakePower = v end })
+
+VehiclesSection:Label({ Name = "Physics", Centered = true })
+VehiclesSection:Slider({ Name = "Tire Grip ×",         Min = 1, Max = 20, Default = 1, Increment = 0.5, Callback = function(v) Flags.Vehicles.TireGrip = v end })
+VehiclesSection:Slider({ Name = "Suspension Height ×", Min = 1, Max = 3,  Default = 1, Increment = 0.1, Callback = function(v) Flags.Vehicles.SuspensionHeight = v end })
+
+VehiclesSection:Label({ Name = "Extras", Centered = true })
+VehiclesSection:Toggle({ Name = "Infinite Nitro",  Default = false, Callback = function(v) Flags.Vehicles.InfiniteNitro = v end })
+VehiclesSection:Toggle({ Name = "Infinite Fuel",   Default = false, Callback = function(v) Flags.Vehicles.InfiniteFuel = v end })
+VehiclesSection:Toggle({ Name = "No Vehicle Damage", Default = false, Callback = function(v) Flags.Vehicles.NoDamage = v end })
+
+VehiclesSection:Button({
+    Name = "Reset All Vehicle Settings",
+    Callback = function()
+        for k, v in pairs(Flags.Vehicles) do
+            if type(v) == "number" then Flags.Vehicles[k] = 1 end
+        end
+        Library:Notify("Vehicle settings reset")
+    end
+})
+
+-- ────────────── LOOT OPTIMIZED ──────────────
+local oldFire = fireproximityprompt
+fireproximityprompt = function(prompt, ...)
+    if Flags.Loot.KeepContainersOpen and prompt and prompt.Parent then
+        local name = prompt.Parent.Name:lower()
+        if name:find("container") or name:find("crate") or name:find("chest") or name:find("loot") then
+            -- Keep open by not allowing default close behavior
+            return
+        end
+    end
+    return oldFire(prompt, ...)
+end
+
+-- ────────────── VEHICLE OPTIMIZED OVERRIDES ──────────────
+if VehicleController and VehicleController.Step then
+    local origThrottle = getupvalue(VehicleController.Step, 2)
+    local origSteer    = getupvalue(VehicleController.Step, 3)
+
+    setupvalue(VehicleController.Step, 2, function(self, throttle, ...)
+        if not Flags.Vehicles.Enabled then
+            return origThrottle(self, throttle, ...)
+        end
+
+        throttle = throttle * Flags.Vehicles.ThrottlePower * Flags.Vehicles.MaxSpeedMult * Flags.Vehicles.Acceleration
+        return origThrottle(self, throttle, ...)
+    end)
+
+    setupvalue(VehicleController.Step, 3, function(self, steer, throttle, ...)
+        if not Flags.Vehicles.Enabled then
+            return origSteer(self, steer, throttle, ...)
+        end
+
+        steer    = steer   * Flags.Vehicles.SteerPower * Flags.Vehicles.SteerSpeed
+        throttle = throttle * Flags.Vehicles.BrakePower
+        return origSteer(self, steer, throttle, ...)
+    end)
+end
+
+-- Lightweight physics update (only when enabled + in vehicle)
+local vehicleConnection
+vehicleConnection = RunService.Heartbeat:Connect(function()
+    if not Flags.Vehicles.Enabled then return end
+
+    local char = LocalPlayer.Character
+    if not char then return end
+
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if not humanoid or not humanoid.SeatPart then return end
+
+    local vehicle = humanoid.SeatPart.Parent
+    if not vehicle or not vehicle:FindFirstChild("Wheels") then return end
+
+    -- Apply grip & suspension only when values are changed from default
+    if Flags.Vehicles.TireGrip ~= 1 or Flags.Vehicles.SuspensionHeight ~= 1 then
+        for _, wheel in ipairs(vehicle.Wheels:GetChildren()) do
+            local part = wheel.PrimaryPart
+            if part then
+                local props = part.CustomPhysicalProperties or PhysicalProperties.new(1, 0.3, 0.5)
+                part.CustomPhysicalProperties = PhysicalProperties.new(
+                    props.Density,
+                    props.Friction * Flags.Vehicles.TireGrip,
+                    props.Elasticity,
+                    props.FrictionWeight,
+                    props.ElasticityWeight
+                )
+            end
+        end
+    end
+
+    -- Suspension (only if changed)
+    if Flags.Vehicles.SuspensionHeight ~= 1 then
+        for _, c in ipairs(vehicle:GetDescendants()) do
+            if c:IsA("SpringConstraint") then
+                c.FreeLength = c.FreeLength * Flags.Vehicles.SuspensionHeight
+            end
+        end
+    end
+end)
+
+-- Network hooks (lightweight)
+local oldNetworkSend = hookfunction(Network.Send, function(self, name, ...)
+    if Flags.Vehicles.Enabled then
+        if Flags.Vehicles.InfiniteNitro  and name:lower():find("nitro")  then return end
+        if Flags.Vehicles.InfiniteFuel   and name:lower():find("fuel")   then return end
+        if Flags.Vehicles.NoDamage       and name:lower():find("damage") then return end
+    end
+    return oldNetworkSend(self, name, ...)
+end)
+
+-- Cleanup on script end / disable
+game:BindToClose(function()
+    if vehicleConnection then vehicleConnection:Disconnect() end
+end)
+
+print("[AR2] Optimized cheats loaded")
+Library:Notify("Performance-optimized AR2 cheats loaded", 5)
