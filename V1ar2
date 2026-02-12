@@ -1,0 +1,246 @@
+local Library = loadstring(game:HttpGet("https://pastebin.com/raw/4iG9SKxs"))()
+local Window = Library:Window()
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+
+local LocalPlayer = Players.LocalPlayer
+
+-- Wait for AR2 Framework (Parvus style)
+local Framework
+repeat 
+    task.wait()
+    Framework = getnilinstances()
+until #Framework > 0
+Framework = require(ReplicatedFirst:WaitForChild("Framework"))
+Framework:WaitForLoaded()
+
+local VehicleController = Framework.Classes.VehicleController
+local Network = Framework.Libraries.Network
+
+-- Flags
+local Flags = {
+    Loot = { KeepOpen = false },
+    Vehicles = {
+        ThrottlePower = 1,
+        MaxSpeedMult = 1,
+        Acceleration = 1,
+        SteerPower = 1,
+        SteerSpeed = 1,
+        BrakePower = 1,
+        TireGrip = 1,
+        SuspensionHeight = 1,
+        InfiniteNitro = false,
+        InfiniteFuel = false,
+        NoDamage = false
+    }
+}
+
+-- ────────────── MAIN PAGE ──────────────
+local MainPage = Window:Page({ Name = "AR2 Cheats" })
+
+-- ────────────── LOOT UTILS ──────────────
+local LootSection = MainPage:Section({ Name = "Loot Utils" })
+
+LootSection:Toggle({
+    Name = "Keep Containers Open",
+    Flag = "Loot/KeepOpen",
+    Default = false,
+    Callback = function(v) Flags.Loot.KeepOpen = v end
+})
+
+LootSection:Keybind({
+    Name = "Open All Containers",
+    Flag = "Loot/OpenKey",
+    Default = "Insert",
+    Callback = function()
+        openAllContainers()
+    end
+})
+
+-- ────────────── VEHICLES ──────────────
+local VehiclesSection = MainPage:Section({ Name = "VEHICLES" })
+
+VehiclesSection:Label({ Name = "[Speed]", Centered = true })
+VehiclesSection:Slider({
+    Name = "Throttle Power (1-5x)",
+    Flag = "Vehicles/ThrottlePower",
+    Min = 1, Max = 5, Default = 1, Increment = 0.1,
+    Callback = function(v) Flags.Vehicles.ThrottlePower = v end
+})
+VehiclesSection:Slider({
+    Name = "Max Speed Multiplier (1-3x)",
+    Flag = "Vehicles/MaxSpeedMult",
+    Min = 1, Max = 3, Default = 1, Increment = 0.1,
+    Callback = function(v) Flags.Vehicles.MaxSpeedMult = v end
+})
+VehiclesSection:Slider({
+    Name = "Acceleration (1-20x)",
+    Flag = "Vehicles/Acceleration",
+    Min = 1, Max = 20, Default = 1, Increment = 0.5,
+    Callback = function(v) Flags.Vehicles.Acceleration = v end
+})
+
+VehiclesSection:Label({ Name = "[Handling]", Centered = true })
+VehiclesSection:Slider({
+    Name = "Steer Power (1-3x)",
+    Flag = "Vehicles/SteerPower",
+    Min = 1, Max = 3, Default = 1, Increment = 0.1,
+    Callback = function(v) Flags.Vehicles.SteerPower = v end
+})
+VehiclesSection:Slider({
+    Name = "Steer Speed (1-2x)",
+    Flag = "Vehicles/SteerSpeed",
+    Min = 1, Max = 2, Default = 1, Increment = 0.1,
+    Callback = function(v) Flags.Vehicles.SteerSpeed = v end
+})
+VehiclesSection:Slider({
+    Name = "Brake Power (1-2x)",
+    Flag = "Vehicles/BrakePower",
+    Min = 1, Max = 2, Default = 1, Increment = 0.1,
+    Callback = function(v) Flags.Vehicles.BrakePower = v end
+})
+
+VehiclesSection:Label({ Name = "[Physics]", Centered = true })
+VehiclesSection:Slider({
+    Name = "Tire Grip (1-20x)",
+    Flag = "Vehicles/TireGrip",
+    Min = 1, Max = 20, Default = 1, Increment = 0.5,
+    Callback = function(v) Flags.Vehicles.TireGrip = v end
+})
+VehiclesSection:Slider({
+    Name = "Suspension Height (1-3x)",
+    Flag = "Vehicles/SuspensionHeight",
+    Min = 1, Max = 3, Default = 1, Increment = 0.1,
+    Callback = function(v) Flags.Vehicles.SuspensionHeight = v end
+})
+
+VehiclesSection:Label({ Name = "[Extras]", Centered = true })
+VehiclesSection:Toggle({
+    Name = "Infinite Nitro",
+    Flag = "Vehicles/InfiniteNitro",
+    Default = false,
+    Callback = function(v) Flags.Vehicles.InfiniteNitro = v end
+})
+VehiclesSection:Toggle({
+    Name = "Infinite Fuel",
+    Flag = "Vehicles/InfiniteFuel",
+    Default = false,
+    Callback = function(v) Flags.Vehicles.InfiniteFuel = v end
+})
+VehiclesSection:Toggle({
+    Name = "No Vehicle Damage",
+    Flag = "Vehicles/NoDamage",
+    Default = false,
+    Callback = function(v) Flags.Vehicles.NoDamage = v end
+})
+VehiclesSection:Button({
+    Name = "Revert All to Default",
+    Callback = function()
+        for k,v in pairs(Flags.Vehicles) do
+            if type(v) == "number" then Flags.Vehicles[k] = 1 end
+        end
+        Library:Notify("Vehicle settings reset to default")
+    end
+})
+
+-- ────────────── FULL LOOT UTILS IMPLEMENTATION ──────────────
+local function openAllContainers()
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("ProximityPrompt") and (
+            obj.Parent.Name:lower():find("container") or 
+            obj.Parent.Name:lower():find("loot") or
+            obj.Parent.Name:lower():find("crate") or
+            obj.Parent.Name:lower():find("chest")
+        ) then
+            if obj.Enabled and obj.MaxActivationDistance > 0 then
+                fireproximityprompt(obj)
+            end
+        end
+    end
+    Library:Notify("Opened all nearby containers!")
+end
+
+-- Keep containers open (hook ProximityPrompt triggered)
+local oldFireProximityPrompt = fireproximityprompt
+fireproximityprompt = function(prompt, ...)
+    if Flags.Loot.KeepOpen and prompt.Parent and (
+        prompt.Parent.Name:lower():find("container") or
+        prompt.Parent.Name:lower():find("loot")
+    ) then
+        -- Don't close after opening
+        return
+    end
+    return oldFireProximityPrompt(prompt, ...)
+end
+
+-- Keybind handler (already in UI, calls openAllContainers())
+
+-- ────────────── FULL VEHICLE HACK (Parvus Style) ──────────────
+local OriginalSetWheelSpeeds = getupvalue(VehicleController.Step, 2)
+local OriginalSetSteerWheels = getupvalue(VehicleController.Step, 3)
+
+-- Override wheel speeds with all multipliers
+setupvalue(VehicleController.Step, 2, function(self, throttle, ...)
+    local mult = Flags.Vehicles.ThrottlePower * Flags.Vehicles.MaxSpeedMult * Flags.Vehicles.Acceleration
+    throttle = throttle * mult
+    
+    return OriginalSetWheelSpeeds(self, throttle, ...)
+end)
+
+-- Override steering with multipliers
+setupvalue(VehicleController.Step, 3, function(self, steer, throttle, ...)
+    local steerMult = Flags.Vehicles.SteerPower * Flags.Vehicles.SteerSpeed
+    local brakeMult = Flags.Vehicles.BrakePower
+    
+    steer = steer * steerMult
+    throttle = throttle * brakeMult
+    
+    return OriginalSetSteerWheels(self, steer, throttle, ...)
+end)
+
+-- Physics overrides (RunService loop)
+RunService.Heartbeat:Connect(function()
+    if not VehicleController then return end
+    
+    -- Apply to current vehicle
+    for _, vehicle in pairs(workspace:GetChildren()) do
+        if vehicle:FindFirstChild("Wheels") and Flags.Vehicles.TireGrip > 1 then
+            for _, wheel in pairs(vehicle.Wheels:GetChildren()) do
+                local part = wheel.PrimaryPart
+                if part then
+                    part.CustomPhysicalProperties = PhysicalProperties.new(
+                        part.CustomPhysicalProperties.Density * Flags.Vehicles.TireGrip,
+                        part.CustomPhysicalProperties.Friction,
+                        part.CustomPhysicalProperties.Elasticity
+                    )
+                end
+            end
+        end
+        
+        -- Suspension height
+        if Flags.Vehicles.SuspensionHeight > 1 then
+            -- Apply to suspension constraints
+            for _, constraint in pairs(vehicle:GetDescendants()) do
+                if constraint:IsA("SpringConstraint") then
+                    constraint.FreeLength = constraint.FreeLength * Flags.Vehicles.SuspensionHeight
+                end
+            end
+        end
+    end
+end)
+
+-- Infinite Nitro/Fuel/No Damage (hook Network)
+local oldSend = hookfunction(Network.Send, function(self, name, ...)
+    if Flags.Vehicles.InfiniteNitro and name:find("Nitro") then return end
+    if Flags.Vehicles.InfiniteFuel and name:find("Fuel") then return end
+    if Flags.Vehicles.NoDamage and name:find("Damage") then return end
+    
+    return oldSend(self, name, ...)
+end)
+
+print("AR2 Parvus-Style Hub Loaded!")
+Library:Notify("Full AR2 cheats loaded - Enjoy!")
